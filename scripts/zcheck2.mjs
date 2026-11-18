@@ -1,0 +1,20 @@
+import { build } from 'esbuild';
+import { writeFileSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { pathToFileURL } from 'url';
+const root = process.cwd().replace(/\\/g, '/');
+const entry = join(mkdtempSync(join(tmpdir(), 'bend-')), 'e.mjs');
+writeFileSync(entry, `
+import { buildSampleParts } from '${root}/src/lib/samples.ts';
+import { buildFlatMesh, identity4, multiply4, rotateAround } from '${root}/src/lib/mesh.ts';
+import { norm, sub } from '${root}/src/lib/geometry.ts';
+const p = buildSampleParts().find(x => x.name.includes('U'));
+const mesh = buildFlatMesh(p);
+console.log('faces:');
+mesh.faces.forEach((f, i) => console.log(i, f.id, 'center', f.center, 'neighbors', f.neighbor.map(n => mesh.faces.findIndex(x => x.id === n.faceId))));
+console.log('bend lines:');
+p.bendLines.forEach((b, i) => console.log(i, b.p1, b.p2, 'dir', norm(sub(b.p2, b.p1))));
+`);
+await build({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'node', outfile: entry.replace('.mjs', '.out.mjs'), logLevel: 'silent', absWorkingDir: process.cwd() });
+await import(pathToFileURL(entry.replace('.mjs', '.out.mjs')).href);

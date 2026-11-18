@@ -1,0 +1,20 @@
+import { build } from 'esbuild';
+import { writeFileSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { pathToFileURL } from 'url';
+const root = process.cwd().replace(/\\/g, '/');
+const entry = join(mkdtempSync(join(tmpdir(), 'bend-')), 'e.mjs');
+writeFileSync(entry, `
+import { buildSampleParts } from '${root}/src/lib/samples.ts';
+import { buildFlatMesh, foldedVertices } from '${root}/src/lib/mesh.ts';
+const p = buildSampleParts().find(x => x.name.includes('L'));
+const mesh = buildFlatMesh(p);
+const up = foldedVertices(p, mesh, [1]);
+p.bends[0].direction = -1;
+const down = foldedVertices(p, mesh, [1]);
+console.log('up tail', up.slice(-6));
+console.log('down tail', down.slice(-6));
+`);
+await build({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'node', outfile: entry.replace('.mjs', '.out.mjs'), logLevel: 'silent', absWorkingDir: process.cwd() });
+await import(pathToFileURL(entry.replace('.mjs', '.out.mjs')).href);
